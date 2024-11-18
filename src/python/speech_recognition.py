@@ -3,6 +3,7 @@ import os
 import sys
 import json
 import time
+import warnings
 import numpy as np
 import torch
 import whisper
@@ -19,7 +20,7 @@ if sys.stdout.encoding != 'utf-8':
 if sys.stderr.encoding != 'utf-8':
     sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer, 'strict')
 
-# Отключаем предупреждения
+# Игнорируем предупреждения
 warnings.filterwarnings("ignore")
 
 @contextmanager
