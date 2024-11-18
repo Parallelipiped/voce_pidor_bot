@@ -1,0 +1,22 @@
+# Telegram Bot Configuration
+telegram:
+  token: "6586127047:AAEBS9fc6NGtXilRbwlzzdds3jgUTZiTZ3E"  # Your bot token
+  max_voice_duration: 1200  # Maximum voice message duration in seconds (20 minutes)
+
+# Paths Configuration
+paths:
+  temp_dir: "temp"  # Directory for temporary files
+  python_script: "src/python/speech_recognition.py"  # Path to Python script
+  ffmpeg: "bin/ffmpeg/bin/ffmpeg.exe"  # Path to FFmpeg executable
+
+# Speech Recognition Configuration
+speech:
+  model: "medium"  # Whisper model size (tiny, base, small, medium, large)
+  language: "ru"   # Default language for recognition
+  use_gpu: true    # Whether to use GPU for recognition
+
+# Audio Configuration
+audio:
+  sample_rate: 16000  # Sample rate in Hz
+  channels: 1         # Number of audio channels (mono)
+  bit_depth: 16       # Bit depth for WAV files

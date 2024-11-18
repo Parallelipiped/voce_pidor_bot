@@ -1,0 +1,10 @@
+# Core dependencies
+torch==2.1.2+cu121
+torchaudio==2.1.2+cu121
+openai-whisper==20231117
+numpy==1.26.3
+soundfile==0.12.1
+
+# Optional dependencies for better performance
+numba>=0.58.1
+tokenizers>=0.15.1
