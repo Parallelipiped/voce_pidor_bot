@@ -30,9 +30,11 @@ type Config struct {
 		FFmpeg       string `yaml:"ffmpeg"`
 	} `yaml:"paths"`
 	Speech struct {
-		Model    string `yaml:"model"`
-		Language string `yaml:"language"`
-		UseGPU   bool   `yaml:"use_gpu"`
+		Model             string            `yaml:"model"`
+		DefaultLanguage   string            `yaml:"default_language"`
+		Languages         map[string]string `yaml:"languages"`
+		UseGPU           bool              `yaml:"use_gpu"`
+		AutoDetectLanguage bool             `yaml:"auto_detect_language"`
 	} `yaml:"speech"`
 	Audio struct {
 		SampleRate int `yaml:"sample_rate"`
@@ -86,9 +88,11 @@ func createPythonConfig() error {
 	// Создаем структуру для Python конфига
 	pythonConfig := map[string]interface{}{
 		"speech": map[string]interface{}{
-			"model":    config.Speech.Model,
-			"language": config.Speech.Language,
-			"use_gpu":  config.Speech.UseGPU,
+			"model":              config.Speech.Model,
+			"default_language":   config.Speech.DefaultLanguage,
+			"languages":          config.Speech.Languages,
+			"use_gpu":           config.Speech.UseGPU,
+			"auto_detect_language": config.Speech.AutoDetectLanguage,
 		},
 		"audio": map[string]interface{}{
 			"sample_rate": config.Audio.SampleRate,
@@ -441,32 +445,69 @@ func editMessageHTML(bot *tgbotapi.BotAPI, chatID int64, messageID int, text str
 	return err
 }
 
-func start(update tgbotapi.Update, bot *tgbotapi.BotAPI) {
-	username := update.Message.From.UserName
-	if username == "" {
-		username = update.Message.From.FirstName
+func handleStart(bot *tgbotapi.BotAPI, update tgbotapi.Update) error {
+	welcomeText := `👋 Привет! Я бот для распознавания голосовых сообщений.
+
+🎙 Отправь мне голосовое сообщение, и я преобразую его в текст.
+
+🌍 Поддерживаемые языки:
+`
+	// Добавляем список языков из конфигурации
+	for code, name := range config.Speech.Languages {
+		welcomeText += fmt.Sprintf("• %s (%s)\n", name, code)
 	}
 
-	welcomeText := fmt.Sprintf(`👋 <b>Привет, @%s!</b>
+	welcomeText += `
+⚙️ По умолчанию используется русский язык.
+🔄 Автоматическое определение языка: `
 
-🎤 Я бот для распознавания речи, использующий технологию <b>OpenAI Whisper</b>.
-
-📝 <b>Как использовать:</b>
-1️⃣ Запишите голосовое сообщение
-2️⃣ Отправьте его мне
-3️⃣ Получите текст с подробной статистикой
-
-ℹ️ <b>Технические детали:</b>
-• Модель: Whisper small
-• Язык: Русский
-• Время обработки: ~15-20 секунд
-• Первый запуск: может занять до минуты
-
-🚀 <b>Готов к работе!</b> Отправьте голосовое сообщение...`, username)
+	if config.Speech.AutoDetectLanguage {
+		welcomeText += "включено"
+	} else {
+		welcomeText += "выключено"
+	}
 
 	msg := tgbotapi.NewMessage(update.Message.Chat.ID, welcomeText)
-	msg.ParseMode = "HTML"
-	bot.Send(msg)
+	_, err := bot.Send(msg)
+	return err
+}
+
+func handleHelp(bot *tgbotapi.BotAPI, update tgbotapi.Update) error {
+	helpText := `🤖 VoicePidor Bot - Помощь
+
+Основные команды:
+/start - Начать работу с ботом
+/help - Показать это сообщение
+
+🎙 Как использовать:
+1. Отправьте голосовое сообщение
+2. Дождитесь обработки
+3. Получите текст
+
+🌍 Поддерживаемые языки:
+`
+	// Добавляем список языков из конфигурации
+	for code, name := range config.Speech.Languages {
+		helpText += fmt.Sprintf("• %s (%s)\n", name, code)
+	}
+
+	helpText += fmt.Sprintf(`
+⚙️ Текущие настройки:
+• Язык по умолчанию: %s
+• Автоопределение языка: %v
+• Модель Whisper: %s
+• GPU: %v
+
+ℹ️ Максимальная длительность: %d секунд`, 
+		config.Speech.DefaultLanguage,
+		config.Speech.AutoDetectLanguage,
+		config.Speech.Model,
+		config.Speech.UseGPU,
+		config.Telegram.MaxVoiceDuration)
+
+	msg := tgbotapi.NewMessage(update.Message.Chat.ID, helpText)
+	_, err := bot.Send(msg)
+	return err
 }
 
 func main() {
@@ -507,7 +548,13 @@ func main() {
 
 			switch {
 			case update.Message.Command() == "start":
-				start(update, bot)
+				if err := handleStart(bot, update); err != nil {
+					log.Printf("Ошибка при обработке команды /start: %v", err)
+				}
+			case update.Message.Command() == "help":
+				if err := handleHelp(bot, update); err != nil {
+					log.Printf("Ошибка при обработке команды /help: %v", err)
+				}
 			case update.Message.Voice != nil:
 				voiceMessageHandler(update, bot)
 			}

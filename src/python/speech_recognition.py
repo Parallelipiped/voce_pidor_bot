@@ -229,6 +229,42 @@ def clean_text(text: str) -> str:
     text = format_text(text)
     return text
 
+def load_config() -> dict:
+    """Загружает конфигурацию из JSON файла."""
+    config_path = os.path.join(os.path.dirname(sys.argv[1]), "config.json")
+    print(f"Looking for config at: {config_path}", file=sys.stderr)
+    
+    if not os.path.exists(config_path):
+        print(f"Config file not found at: {config_path}", file=sys.stderr)
+        print("Using default configuration", file=sys.stderr)
+        return {
+            "speech": {
+                "model": "medium",
+                "default_language": "ru",
+                "languages": {"ru": "Russian"},
+                "use_gpu": True,
+                "auto_detect_language": False
+            }
+        }
+    
+    print("Loading configuration from file", file=sys.stderr)
+    with open(config_path, 'r') as f:
+        config = json.load(f)
+    print(f"Loaded config: {config}", file=sys.stderr)
+    return config
+
+def detect_language(audio: np.ndarray, model) -> str:
+    """Определяет язык аудио с помощью Whisper."""
+    # Используем первые 30 секунд для определения языка
+    audio_segment = audio[:int(16000 * 30)] if len(audio) > 16000 * 30 else audio
+    
+    print("Detecting language...", file=sys.stderr)
+    result = model.transcribe(audio_segment, language=None)
+    detected_lang = result.get("language", "ru")
+    print(f"Detected language: {detected_lang}", file=sys.stderr)
+    
+    return detected_lang
+
 def transcribe_audio(audio_path: str) -> str:
     try:
         # Проверяем входной файл
@@ -246,45 +282,36 @@ def transcribe_audio(audio_path: str) -> str:
         if device == "cuda":
             print(f"GPU: {torch.cuda.get_device_name(0)}", file=sys.stderr)
         
-        import whisper
-        start_time = time.time()
-
         # Загружаем конфигурацию
-        config_path = os.path.join(os.path.dirname(audio_path), "config.json")
-        print(f"Looking for config at: {config_path}", file=sys.stderr)
+        config = load_config()
+        speech_config = config.get("speech", {})
         
-        if not os.path.exists(config_path):
-            print(f"Config file not found at: {config_path}", file=sys.stderr)
-            print("Using default configuration", file=sys.stderr)
-            config = {
-                "speech": {
-                    "model": "medium",
-                    "language": "ru",
-                    "use_gpu": True
-                }
-            }
-        else:
-            print("Loading configuration from file", file=sys.stderr)
-            with open(config_path, 'r') as f:
-                config = json.load(f)
-            print(f"Loaded config: {config}", file=sys.stderr)
-
         # Загружаем модель
         print("Loading model...", file=sys.stderr)
         print("Это может занять несколько минут при первом запуске", file=sys.stderr)
-        model = whisper.load_model(config["speech"]["model"]).to(device)
-        model_load_time = time.time() - start_time
-        print(f"Model loaded in {model_load_time:.2f} seconds", file=sys.stderr)
-
+        model = whisper.load_model(speech_config.get("model", "medium")).to(device)
+        
+        # Определяем язык если включено автоопределение
+        language = speech_config.get("default_language", "ru")
+        if speech_config.get("auto_detect_language", False):
+            language = detect_language(audio, model)
+            print(f"Using detected language: {language}", file=sys.stderr)
+        else:
+            print(f"Using configured language: {language}", file=sys.stderr)
+        
         # Распознаем речь
         print(f"Transcribing audio data...", file=sys.stderr)
         transcribe_start = time.time()
-        result = model.transcribe(audio, language=config["speech"]["language"])
+        result = model.transcribe(audio, language=language)
         transcribe_time = time.time() - transcribe_start
         print(f"Transcription completed in {transcribe_time:.2f} seconds", file=sys.stderr)
 
         # Очищаем и форматируем результат
         text = clean_text(result["text"].strip())
+        
+        # Освобождаем память GPU
+        if device == "cuda":
+            torch.cuda.empty_cache()
         
         # Выводим статистику в stderr для логирования
         total_time = time.time() - start_time
