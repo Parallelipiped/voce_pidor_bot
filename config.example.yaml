@@ -19,10 +19,18 @@ speech:
   # Whisper model size options: tiny, base, small, medium, large
   # Larger models are more accurate but require more GPU memory and processing time
   model: "medium"
-  # Default language for recognition (ru = Russian)
-  language: "ru"
+  # Default language for recognition
+  default_language: "ru"
+  # Supported languages and their codes
+  languages:
+    ru: "Russian"
+    en: "English"
+    uk: "Ukrainian"
+    be: "Belarusian"
   # Set to true if you have NVIDIA GPU with CUDA support
   use_gpu: true
+  # Enable automatic language detection (may increase processing time)
+  auto_detect_language: false
 
 # Audio Configuration
 audio:
