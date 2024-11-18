@@ -100,6 +100,10 @@ voce_pidor_bot/
 └── requirements.txt   # Python зависимости
 ```
 
+## 📦 Репозитории
+- GitHub: [github.com/Parallelipiped/voce_pidor_bot](https://github.com/Parallelipiped/voce_pidor_bot)
+- GitVerse: [gitverse.ru/Parallelipiped/voce_pidor_bot](https://gitverse.ru/Parallelipiped/voce_pidor_bot)
+
 ## 🤝 Вклад в проект
 1. Форкните репозиторий
 2. Создайте ветку для ваших изменений
