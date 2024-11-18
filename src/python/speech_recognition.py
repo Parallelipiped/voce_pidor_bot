@@ -302,6 +302,9 @@ def detect_language(audio: np.ndarray, model) -> str:
 
 def transcribe_audio(audio_path: str) -> str:
     try:
+        # Начинаем отсчет времени
+        start_time = time.time()
+
         # Проверяем входной файл
         print(f"Начинаю распознавание файла: {audio_path}", file=sys.stderr)
         check_audio_file(audio_path)
@@ -325,6 +328,7 @@ def transcribe_audio(audio_path: str) -> str:
         print("Loading model...", file=sys.stderr)
         print("Это может занять несколько минут при первом запуске", file=sys.stderr)
         model = whisper.load_model(speech_config.get("model", "medium")).to(device)
+        model_load_time = time.time() - start_time
         
         # Определяем язык если включено автоопределение
         language = speech_config.get("default_language", "ru")
@@ -339,7 +343,6 @@ def transcribe_audio(audio_path: str) -> str:
         transcribe_start = time.time()
         result = model.transcribe(audio, language=language)
         transcribe_time = time.time() - transcribe_start
-        print(f"Transcription completed in {transcribe_time:.2f} seconds", file=sys.stderr)
 
         # Очищаем и форматируем результат
         text = clean_text(result["text"].strip())
@@ -347,25 +350,18 @@ def transcribe_audio(audio_path: str) -> str:
         # Освобождаем память GPU
         if device == "cuda":
             torch.cuda.empty_cache()
-        
-        # Выводим статистику в stderr для логирования
+
+        # Выводим статистику
         total_time = time.time() - start_time
         stats = f"\n\n📊 Статистика:\n⏱ Загрузка модели: {model_load_time:.1f}с\n⌛️ Распознавание: {transcribe_time:.1f}с\n🕐 Общее время: {total_time:.1f}с"
         print(f"Распознанный текст:\n{text}", file=sys.stderr)
         print(f"Статистика:{stats}", file=sys.stderr)
         
-        # Выводим текст в stdout для Go
-        print(text)
-        sys.stdout.flush()
-        
         return text
 
-    except ImportError as e:
-        print(f"Error importing whisper: {str(e)}", file=sys.stderr)
-        sys.exit(1)
     except Exception as e:
         print(f"Error: {str(e)}", file=sys.stderr)
-        sys.exit(1)
+        raise RuntimeError(f"Ошибка при распознавании речи: {str(e)}")
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
