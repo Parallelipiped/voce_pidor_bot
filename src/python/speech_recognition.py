@@ -1,17 +1,17 @@
 # -*- coding: utf-8 -*-
-import sys
-import warnings
-import time
-import torch
 import os
-import wave
-import codecs
+import sys
+import json
+import time
 import numpy as np
+import torch
+import whisper
 import soundfile as sf
+import codecs
+import wave
+import shutil
 from typing import Optional
 from contextlib import contextmanager
-import shutil
-import json
 
 # Настраиваем кодировку для stdout
 if sys.stdout.encoding != 'utf-8':
@@ -234,24 +234,58 @@ def load_config() -> dict:
     config_path = os.path.join(os.path.dirname(sys.argv[1]), "config.json")
     print(f"Looking for config at: {config_path}", file=sys.stderr)
     
+    default_config = {
+        "speech": {
+            "model": "medium",
+            "default_language": "ru",
+            "languages": {
+                "ru": "Russian",
+                "en": "English",
+                "uk": "Ukrainian",
+                "be": "Belarusian"
+            },
+            "use_gpu": True,
+            "auto_detect_language": False
+        },
+        "audio": {
+            "sample_rate": 16000,
+            "channels": 1,
+            "bit_depth": 16
+        }
+    }
+    
     if not os.path.exists(config_path):
         print(f"Config file not found at: {config_path}", file=sys.stderr)
         print("Using default configuration", file=sys.stderr)
-        return {
-            "speech": {
-                "model": "medium",
-                "default_language": "ru",
-                "languages": {"ru": "Russian"},
-                "use_gpu": True,
-                "auto_detect_language": False
-            }
-        }
+        return default_config
     
-    print("Loading configuration from file", file=sys.stderr)
-    with open(config_path, 'r') as f:
-        config = json.load(f)
-    print(f"Loaded config: {config}", file=sys.stderr)
-    return config
+    try:
+        print("Loading configuration from file", file=sys.stderr)
+        with open(config_path, 'r') as f:
+            config = json.load(f)
+            
+        # Объединяем с дефолтными значениями
+        if "speech" not in config:
+            config["speech"] = default_config["speech"]
+        else:
+            for key, value in default_config["speech"].items():
+                if key not in config["speech"] or config["speech"][key] is None:
+                    config["speech"][key] = value
+                    
+        if "audio" not in config:
+            config["audio"] = default_config["audio"]
+        else:
+            for key, value in default_config["audio"].items():
+                if key not in config["audio"] or config["audio"][key] is None:
+                    config["audio"][key] = value
+                    
+        print(f"Loaded config: {config}", file=sys.stderr)
+        return config
+        
+    except Exception as e:
+        print(f"Error loading config: {e}", file=sys.stderr)
+        print("Using default configuration", file=sys.stderr)
+        return default_config
 
 def detect_language(audio: np.ndarray, model) -> str:
     """Определяет язык аудио с помощью Whisper."""

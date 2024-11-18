@@ -46,14 +46,45 @@ type Config struct {
 var config Config
 
 func loadConfig() error {
-	// Читаем файл конфигурации
-	data, err := os.ReadFile("config.yaml")
+	// Устанавливаем значения по умолчанию
+	config = Config{
+		Speech: struct {
+			Model             string            `yaml:"model"`
+			DefaultLanguage   string            `yaml:"default_language"`
+			Languages         map[string]string `yaml:"languages"`
+			UseGPU           bool              `yaml:"use_gpu"`
+			AutoDetectLanguage bool             `yaml:"auto_detect_language"`
+		}{
+			Model:           "medium",
+			DefaultLanguage: "ru",
+			Languages: map[string]string{
+				"ru": "Russian",
+				"en": "English",
+				"uk": "Ukrainian",
+				"be": "Belarusian",
+			},
+			UseGPU:           true,
+			AutoDetectLanguage: false,
+		},
+		Audio: struct {
+			SampleRate int `yaml:"sample_rate"`
+			Channels   int `yaml:"channels"`
+			BitDepth   int `yaml:"bit_depth"`
+		}{
+			SampleRate: 16000,
+			Channels:   1,
+			BitDepth:   16,
+		},
+	}
+
+	// Загружаем конфигурацию
+	configBytes, err := os.ReadFile("config.yaml")
 	if err != nil {
 		return fmt.Errorf("ошибка чтения конфига: %v", err)
 	}
 
-	// Парсим YAML
-	err = yaml.Unmarshal(data, &config)
+	// Загружаем конфигурацию из файла
+	err = yaml.Unmarshal(configBytes, &config)
 	if err != nil {
 		return fmt.Errorf("ошибка парсинга конфига: %v", err)
 	}
@@ -73,6 +104,11 @@ func loadConfig() error {
 	}
 	if !filepath.IsAbs(config.Paths.FFmpeg) {
 		config.Paths.FFmpeg = filepath.Join(projectRoot, config.Paths.FFmpeg)
+	}
+
+	// Проверяем и создаем временную директорию
+	if err := os.MkdirAll(config.Paths.TempDir, 0755); err != nil {
+		return fmt.Errorf("ошибка создания временной директории: %v", err)
 	}
 
 	// Логируем пути для отладки
