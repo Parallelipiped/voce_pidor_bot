@@ -351,11 +351,15 @@ def transcribe_audio(audio_path: str) -> str:
         if device == "cuda":
             torch.cuda.empty_cache()
 
-        # Выводим статистику
+        # Выводим статистику в stderr
         total_time = time.time() - start_time
         stats = f"\n\n📊 Статистика:\n⏱ Загрузка модели: {model_load_time:.1f}с\n⌛️ Распознавание: {transcribe_time:.1f}с\n🕐 Общее время: {total_time:.1f}с"
         print(f"Распознанный текст:\n{text}", file=sys.stderr)
         print(f"Статистика:{stats}", file=sys.stderr)
+        
+        # Выводим текст в stdout для Go
+        print(text)
+        sys.stdout.flush()
         
         return text
 
@@ -367,6 +371,10 @@ if __name__ == "__main__":
     if len(sys.argv) != 2:
         print("Usage: python speech_recognition.py <audio_file>", file=sys.stderr)
         sys.exit(1)
-
-    audio_file = sys.argv[1]
-    transcribe_audio(audio_file)
+    
+    try:
+        text = transcribe_audio(sys.argv[1])
+        sys.exit(0)
+    except Exception as e:
+        print(str(e), file=sys.stderr)
+        sys.exit(1)
